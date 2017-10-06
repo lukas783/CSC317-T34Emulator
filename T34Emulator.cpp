@@ -19,7 +19,7 @@
  * parse(byte*, std::string) can be used
  * 
  * Compiling:
- * $ g++ -o T34Emulator T34Emulator.cpp
+ * $ g++ -std=c++11 -o T34Emulator T34Emulator.cpp
  * 
  * Usage:
  * $ T34Emulator [objfile.obj]
