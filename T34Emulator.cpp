@@ -6,6 +6,24 @@
  * Class:    CSC317 (Computer Org & Architecture)
  * Professor:Dr. Karlsson
  * 
+ * Description: T34Emulator is a program that creates a memory array of 
+ * 4096 (212) words where each word contains 24 bits. Memory can be read
+ * from and written to using the putWord and getWord functions, a memory 
+ * dump can be executed using the memdump function and you can parse words 
+ * of memory into their instructions using the parse function. The program 
+ * also must read in an object file that contains memory addresses and their 
+ * data to store, the last item in the object file will be the address the 
+ * program counter will start at, this value is stored in a char* as a 
+ * variable called ‘pc’. To perform a memory dump, the function 
+ * memdump(byte*) can be used, or to parse a string the function 
+ * parse(byte*, std::string) can be used
+ * 
+ * Compiling:
+ * $ g++ -o T34Emulator T34Emulator.cpp
+ * 
+ * Usage:
+ * $ T34Emulator [objfile.obj]
+ * Where [objfile.obj] is replaced with the file path for your .obj file
  * 
  ********************************************************************/
 
@@ -47,8 +65,15 @@ int main(int argc, char* argv[]) {
     byte memarray[MAXMEM];
     memset(memarray, 0, sizeof(memarray));
     char *pc = readObj(argv[1], memarray);
-    memdump(memarray);
-    parse(memarray, "0c5,0c6,0c7");
+
+    /*****************************************
+     * MODIFICATIONS TO THE PROGRAM CAN GO BELOW THIS LINE
+     *****************************************/
+    // memdump(memarray);
+    // parse(memarray, "0c5,0c6,0c7");
+
+
+    /** we need to clean up our dynamic memory and exit **/
     delete pc;
     return 0;
 }
@@ -88,7 +113,7 @@ char *readObj(char *filename, byte *memarray) {
 /**
  * putWord(byte*, char*, char*, int=16)
  * - Function takes in an array of bytes acting as memory, an
- * - array of characters represing in hex a memory address, 
+ * - array of characters representing in hex a memory address, 
  * - another array of characters representing a value in a base
  * - to store in the hex memory address, and an int defaulted to
  * - 16 to represent the base the value being put into the hex 
@@ -126,8 +151,8 @@ void putWord(byte *memarray, char *memaddr, char *value, int base) {
  *           int   - an input base to convert char* to decimal correctly
  *           int   - an output base for the returned char* array
  * 
- * - Ouputs: char* - a dynamic character array of the value in
- *            at the specified memory address
+ * - Ouputs: char* - a character array in a specific base containing the
+ *                   24 bit value of a memory address
  **/
 char* getWord(byte *memarray, char *memaddr, int base, int outbase) {
     /** Convert our memaddr to a base10 number and find the array offset **/
@@ -152,6 +177,8 @@ char* getWord(byte *memarray, char *memaddr, int base, int outbase) {
  * - the code loops through each memory address and outputs any
  * - addresses with a value not equal to 0
  * 
+ * - Inputs: byte* - an array of bytes acting as memory
+ * 
  * - Ouputs: no data output, physical output to terminal in form
  *           [MEMADDR] - HEXVAL(6 hex digits)
  **/
@@ -168,7 +195,7 @@ void memdump(byte *memarray) {
 
 /** 
  * parse(byte*, std::string)
- * - Function takes in an array of bytes functioning as a static memory
+ * - Function takes in an array of bytes functioning as static memory
  * - and a string of hex addresses separated by ','s or ' 's and splits
  * - the string into a list of strings, then each address is parsed
  * - and the output of each byte in memory is displayed as 3 bitstrings
