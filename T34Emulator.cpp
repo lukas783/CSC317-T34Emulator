@@ -34,6 +34,7 @@
 #include <string>
 #include <stdio.h>
 #include <vector>
+#include "Registers.h"
 
 #define PROGNAME "T34Emulator.exe"
 #define MAXMEM 12288
@@ -44,7 +45,6 @@ void putWord(byte *memarray, char *memaddr, char *value, int base = 16);
 char *getWord(byte *memarray, char *memaddr, int base = 16, int outbase = 10);
 void memdump(byte *memarray);
 void parse(byte *memarray, std::string addrs);
-
 
 /**
  * main(int, char*[])
@@ -64,17 +64,14 @@ int main(int argc, char* argv[]) {
     }
     byte memarray[MAXMEM];
     memset(memarray, 0, sizeof(memarray));
-    char *pc = readObj(argv[1], memarray);
-
+    Registers regfile(readObj(argv[1], memarray));
+    
     /*****************************************
      * MODIFICATIONS TO THE PROGRAM CAN GO BELOW THIS LINE
      *****************************************/
-    // memdump(memarray);
-    // parse(memarray, "0c5,0c6,0c7");
+    memdump(memarray);
+    parse(memarray, "0c4,0c5 0c6,0c7 0c8 050");
 
-
-    /** we need to clean up our dynamic memory and exit **/
-    delete pc;
     return 0;
 }
 
