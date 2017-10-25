@@ -38,7 +38,7 @@
 
 #define PROGNAME "T34Emulator.exe"
 #define MAXMEM 12288
-typedef unsigned char byte;
+
 
 char *readObj(char *filename, byte *memarray);
 void putWord(byte *memarray, char *memaddr, char *value, int base = 16);
@@ -62,13 +62,17 @@ int main(int argc, char* argv[]) {
         printf("%s: fatal error: No input .obj file given.\nUsage: %s [.obj file]\n", PROGNAME, PROGNAME);
         return 1;
     }
+    /** create an array of memory of length MAXWORDS*3 **/
     byte memarray[MAXMEM];
     memset(memarray, 0, sizeof(memarray));
+    /** create our registers/fill our memory/assign our memory pointer/set the ic **/
     Registers regfile(readObj(argv[1], memarray));
+    regfile.setMemAddress(memarray);
+
+    /** start the emulation! **/
+    regfile.run();
     
-    /*****************************************
-     * MODIFICATIONS TO THE PROGRAM CAN GO BELOW THIS LINE
-     *****************************************/
+    /** dump it all, parse a few **/
     memdump(memarray);
     parse(memarray, "0c4,0c5 0c6,0c7 0c8 050");
 

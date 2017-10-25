@@ -25,3 +25,26 @@ Registers::~Registers() {
         delete[] X[i];
     }
 }
+
+/** 
+ * A simple function to reassign the pointer of our memory array to the 
+ * same pointer in our class so our class has access to memory.
+ **/
+void Registers::setMemAddress(byte* mem) {
+    memory = mem;
+}
+
+/** 
+ * The beating heart of our emulator, it will handle continuous execution
+ * of the program, fetching of the next instruction, interfacing between
+ * memory and registers, and outputting to screen from this point on
+ *
+ * note to self: maybe take a note from python and do some kind of REPL?
+ * Read - look at IC, decode and prepare
+ * Eval - process the instruction and modify mem/regs as needed
+ * Print - print the addr, value, instr, ac reg, and x0-3
+ * Loop - increment IC if non-branch and loop back to R (Read)
+ **/
+void Registers::run() {
+
+}

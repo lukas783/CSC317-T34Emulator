@@ -4,12 +4,17 @@
 #include <stdio.h>
 #include <vector>
 
+typedef unsigned char byte;
+
 class Registers {
 public:
     Registers(char* ic);
     ~Registers();
+    void setMemAddress(byte *mem);
+    void run();
     
 private:
+    byte* memory;
     char* MAR;
     char* IC;
     std::vector<char*> X = {0, 0, 0, 0};
