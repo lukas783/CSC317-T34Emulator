@@ -1,9 +1,8 @@
-#include "Registers.h"
+#include "Emulation.h"
 
-Registers::Registers(char* ic) {
-    IC = ic;
+Registers::Registers() {
+    // do nothin!
 }
-
 Registers::~Registers() {
     if(MAR != nullptr) 
         delete[] MAR;
@@ -26,11 +25,20 @@ Registers::~Registers() {
     }
 }
 
+
+Emulator::Emulator(char* ic) {
+    reg.IC = ic;
+}
+
+Emulator::~Emulator() {
+    // do nothing!
+}
+
 /** 
  * A simple function to reassign the pointer of our memory array to the 
  * same pointer in our class so our class has access to memory.
  **/
-void Registers::setMemAddress(byte* mem) {
+void Emulator::setMemAddress(byte* mem) {
     memory = mem;
 }
 
@@ -45,6 +53,12 @@ void Registers::setMemAddress(byte* mem) {
  * Print - print the addr, value, instr, ac reg, and x0-3
  * Loop - increment IC if non-branch and loop back to R (Read)
  **/
-void Registers::run() {
-
+void Emulator::run() {
+    /** You see, it's simple... we fetch the instruction.. **/
+    char* fetched = getWord(memory, reg.IC);
+    printf("Old IC: %s | New IC: ",reg.IC);
+    /** Increment the IC..**/\
+    sprintf(reg.IC, "%0x", std::stoi(reg.IC, nullptr, 16)+1);
+    printf("%s\n", reg.IC);
 }
+
