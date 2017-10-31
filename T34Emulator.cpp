@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     emulator.run();
     
     /** dump it all, parse a few **/
-    memdump(memarray);
+//    memdump(memarray);
     parse(memarray, "0c4,0c5 0c6,0c7 0c8 050");
 
     return 0;

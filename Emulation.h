@@ -18,7 +18,7 @@ struct Registers {
     char* MDR;
     char* AC;
     char* ALU;
-    char* IR;
+    int IR;
     char* DBUS;
 };
 
@@ -28,7 +28,7 @@ public:
     ~Emulator();
     void setMemAddress(byte *mem);
     void run();
-    
+    void decode(int opType);
 private:
     byte* memory;
     Registers reg;

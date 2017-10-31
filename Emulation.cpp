@@ -16,8 +16,6 @@ Registers::~Registers() {
         delete[] AC;
     if(ALU != nullptr) 
         delete[] ALU;
-    if(IR != nullptr) 
-        delete[] IR;
     if(DBUS != nullptr) 
         delete[] DBUS;
     for(int i = 0; i < X.size(); i++) {
@@ -31,7 +29,7 @@ Emulator::Emulator(char* ic) {
 }
 
 Emulator::~Emulator() {
-    // do nothing!
+    
 }
 
 /** 
@@ -40,6 +38,19 @@ Emulator::~Emulator() {
  **/
 void Emulator::setMemAddress(byte* mem) {
     memory = mem;
+}
+
+void Emulator::decode(int opType) {
+    int fetched = opType>>10;
+    if(fetched == 3) {
+        printf("JUMP at %s\n", reg.IC);
+    } else if(fetched == 2) {
+        printf("ADDOP at %s\n", reg.IC);
+    } else if(fetched == 1) {
+        printf("LR/SR at %s\n", reg.IC);
+    } else {
+//        printf("HALT AT %s\n", reg.IC);
+    }
 }
 
 /** 
@@ -54,11 +65,28 @@ void Emulator::setMemAddress(byte* mem) {
  * Loop - increment IC if non-branch and loop back to R (Read)
  **/
 void Emulator::run() {
-    /** You see, it's simple... we fetch the instruction.. **/
-    char* fetched = getWord(memory, reg.IC);
-    printf("Old IC: %s | New IC: ",reg.IC);
-    /** Increment the IC..**/\
-    sprintf(reg.IC, "%0x", std::stoi(reg.IC, nullptr, 16)+1);
-    printf("%s\n", reg.IC);
+    //char* newIC = new char[4];
+    while(strcmp(reg.IC, "fff") != 0) {
+        /** You see, it's simple... we fetch the instruction.. **/
+        reg.IR = std::stoi(getWord(memory, reg.IC), nullptr, 10);
+        /** Increment the IC..**/\
+        sprintf(reg.IC, "%0x", std::stoi(reg.IC, nullptr, 16)+1);
+        decode(reg.IR-(0b11<<10));
+
+        /** How these instructions are decoded.. 
+        if((reg.IR & (0b11<<10)) == (0b11<<10)) {
+            printf("JUMP at %s\n", reg.IC);
+        } else if((fetched & (0b1<<11)) == (0b1<<11)) {
+            printf("ADDOP at %s\n", reg.IC);
+        } else if((fetched & (0b01<<10)) == (0b01<<10)) {
+            printf("LR/SR at %s\n", reg.IC);
+        } else {
+            printf("HALT AT %s\n", reg.IC);
+            break;
+        }*/
+
+//        strcpy(reg.IC, newIC);
+    }   
+
 }
 
