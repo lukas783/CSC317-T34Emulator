@@ -4,28 +4,15 @@ Registers::Registers() {
     // do nothin!
 }
 Registers::~Registers() {
-    if(MAR != nullptr) 
-        delete[] MAR;
-    if(IC != nullptr) 
+    if(IC != nullptr) {
         delete[] IC;
-    if(ABUS != nullptr) 
-        delete[] ABUS;
-    if(MDR != nullptr) 
-        delete[] MDR;
-    if(AC != nullptr) 
-        delete[] AC;
-    if(ALU != nullptr) 
-        delete[] ALU;
-    if(DBUS != nullptr) 
-        delete[] DBUS;
-    for(int i = 0; i < X.size(); i++) {
-        delete[] X[i];
     }
 }
 
 
 Emulator::Emulator(char* ic) {
     reg.IC = ic;
+    halted = false;
 }
 
 Emulator::~Emulator() {
@@ -41,15 +28,16 @@ void Emulator::setMemAddress(byte* mem) {
 }
 
 void Emulator::decode(int opType) {
-    int fetched = opType>>10;
-    if(fetched == 3) {
+    printf("%d | ", opType);
+    if(opType == 3) {
         printf("JUMP at %s\n", reg.IC);
-    } else if(fetched == 2) {
+    } else if(opType == 2) {
         printf("ADDOP at %s\n", reg.IC);
-    } else if(fetched == 1) {
+    } else if(opType == 1) {
         printf("LR/SR at %s\n", reg.IC);
     } else {
-//        printf("HALT AT %s\n", reg.IC);
+        printf("HALT AT %s\n", reg.IC);
+        halted = true;
     }
 }
 
@@ -66,26 +54,14 @@ void Emulator::decode(int opType) {
  **/
 void Emulator::run() {
     //char* newIC = new char[4];
-    while(strcmp(reg.IC, "fff") != 0) {
+    while(!halted && strcmp(reg.IC, "fff")) {
         /** You see, it's simple... we fetch the instruction.. **/
         reg.IR = std::stoi(getWord(memory, reg.IC), nullptr, 10);
-        /** Increment the IC..**/\
+        /** Increment the IC..**/
         sprintf(reg.IC, "%0x", std::stoi(reg.IC, nullptr, 16)+1);
-        decode(reg.IR-(0b11<<10));
+        printf("%d | %d \n", reg.IR.test(10), reg.IR.test(11));//reg.IR, (reg.IR & std::bitset<24>(3<<10)));
+        decode( (reg.IR.test(11) << 1) | reg.IR.test(10) );
 
-        /** How these instructions are decoded.. 
-        if((reg.IR & (0b11<<10)) == (0b11<<10)) {
-            printf("JUMP at %s\n", reg.IC);
-        } else if((fetched & (0b1<<11)) == (0b1<<11)) {
-            printf("ADDOP at %s\n", reg.IC);
-        } else if((fetched & (0b01<<10)) == (0b01<<10)) {
-            printf("LR/SR at %s\n", reg.IC);
-        } else {
-            printf("HALT AT %s\n", reg.IC);
-            break;
-        }*/
-
-//        strcpy(reg.IC, newIC);
     }   
 
 }

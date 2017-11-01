@@ -11,15 +11,15 @@ typedef unsigned char byte;
 struct Registers {
     Registers();
     ~Registers();
-    char* MAR;
+    std::bitset<12> MAR;
     char* IC;
-    std::vector<char*> X= {0,0,0,0};
-    char* ABUS;
-    char* MDR;
-    char* AC;
-    char* ALU;
-    int IR;
-    char* DBUS;
+    std::vector<std::bitset<12>> X= {0,0,0,0};
+    std::bitset<12> ABUS;
+    std::bitset<24> MDR;
+    std::bitset<24> AC;
+    std::bitset<24> ALU;
+    std::bitset<24> IR = 0;
+    std::bitset<24> DBUS;
 };
 
 class Emulator {
@@ -28,11 +28,15 @@ public:
     ~Emulator();
     void setMemAddress(byte *mem);
     void run();
-    void decode(int opType);
+    
 private:
     byte* memory;
     Registers reg;
-    
+    bool halted;
+    void decode(int opType);
+    bool memOp();
+    bool ALUOp();
+    bool BranchOp();
 };
 
 #endif
