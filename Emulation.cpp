@@ -29,35 +29,37 @@ void Emulator::setMemAddress(byte* mem) {
 
 int Emulator::getMemory() {
     int addr = int(reg.MAR.to_ulong())*3; 
-    return (memory[addr]<<16) | (memory[addr]<<8) | (memory[addr]);
+    return ((memory[addr]<<16) | (memory[addr+1]<<8) | (memory[addr+2]));
 }
 void Emulator::decode() {
     int indicator = getBits(reg.IR, 10, 11);
     int op = getBits(reg.IR, 6, 9);
     int am = getBits(reg.IR, 2, 5);
-    if(am == 0) {
+    printf("%s  ", mnemonic[indicator][getBits(reg.IR, 6, 9)].c_str());    
+    if(am == 0 && indicator != 0) {
         reg.MAR = getBits(reg.IR, 12, 23);
         EA = getMemory();
-    } else if(am == 1) {
+        printf("%03x  ", int(reg.MAR.to_ulong()));
+    } else if(am == 1 && indicator != 0) {
         EA = getBits(reg.IR, 12, 23);
         if(reg.IR.test(23) == 1) {
             EA |= (0b111111111111<<12);
         }
+        printf("IMM  ");
     } else {
-        printf("Unknown addressing mode.\n");
         halted = true;
     }
+    printf("\n");
     if(indicator == 3) {
-        printf("JUMP at %s", reg.IC);
+        //printf("JUMP at %s", reg.IC);
     } else if(indicator == 2) {
-        printf("ADDOP at %s", reg.IC);
+        //printf("ADDOP at %s", reg.IC);
     } else if(indicator == 1) {
-        printf("LD at %s", reg.IC);
+        
     } else {
-        printf("HALT AT %s", reg.IC);
         halted = true;
+        printf("Machine Halted - HALT instruction executed\n");
     }
-    printf(" | EA: %s\n", EA.to_string<char, std::string::traits_type,std::string::allocator_type>().c_str());
 }
 
 int Emulator::getBits(std::bitset<24> bits, int start, int end) {
