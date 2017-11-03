@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
     
     /** dump it all, parse a few **/
 //    memdump(memarray);
-    parse(memarray, "0c4,0c5 0c6,0c7 0c8 050");
+//    parse(memarray, "0c4,0c5 0c6,0c7 0c8 050");
 
     return 0;
 }

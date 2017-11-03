@@ -33,7 +33,10 @@ private:
     byte* memory;
     Registers reg;
     bool halted;
-    void decode(int opType);
+    std::bitset<24> EA;
+    int getMemory();
+    int getBits(std::bitset<24> bits, int start, int end);
+    void decode();
     bool memOp();
     bool ALUOp();
     bool BranchOp();
