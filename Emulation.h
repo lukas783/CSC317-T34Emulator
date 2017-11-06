@@ -33,13 +33,14 @@ private:
     byte* memory;
     Registers reg;
     bool halted;
-    std::bitset<24> EA;
+    std::bitset<12> EA;
     int getMemory();
     int getBits(std::bitset<24> bits, int start, int end);
     void decode();
     bool memOp();
-    bool ALUOp();
+    bool ALUOp(int op, bool useAC, bool toAC);
     bool BranchOp();
+    void printAccumulator();
 };
 
 const std::vector<std::vector<std::string>> mnemonic = {

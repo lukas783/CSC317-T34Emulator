@@ -124,3 +124,10 @@ void parse(byte *memarray, std::string addrs) {
         delete addrValue;
     }
 }
+
+void putMemory(byte *memarray, std::bitset<12> mar, std::bitset<24> mdr) {
+    int addr = int(mar.to_ulong())*3;
+    memarray[addr] = (mdr.to_ulong() >> 16) & 0xFF;
+    memarray[addr+1] = (mdr.to_ulong() >> 8) & 0xFF;
+    memarray[addr+2] = (mdr.to_ulong() >> 0) & 0xFF;
+}

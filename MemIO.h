@@ -13,5 +13,6 @@ void putWord(byte *memarray, char *memaddr, char *value, int base = 16);
 char *getWord(byte *memarray, char *memaddr, int base = 16, int outbase = 10);
 void memdump(byte *memarray);
 void parse(byte *memarray, std::string addrs);
+void putMemory(byte *memarray, std::bitset<12> mar, std::bitset<24> mdr);
 
 #endif
