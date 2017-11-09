@@ -33,7 +33,6 @@ private:
     byte* memory;
     Registers reg;
     bool halted;
-    std::bitset<12> EA;
     int getMemory();
     int getBits(std::bitset<24> bits, int start, int end);
     void decode();

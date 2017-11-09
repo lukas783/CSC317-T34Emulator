@@ -41,16 +41,15 @@ void Emulator::decode() {
     printf("%s  ", instr.c_str());
     if(am == 0 && indicator != 0) {
         reg.MAR = getBits(reg.IR, 12, 23);
-        EA = getMemory();
+        reg.ALU = getMemory();
         printf("%03x  ", int(reg.MAR.to_ulong()));
     } else if(am == 1 && indicator != 0) {
-        EA = getBits(reg.IR, 12, 23);
+        reg.ALU = getBits(reg.IR, 12, 23);
         if(reg.IR.test(23) == 1) {
-            EA |= (0b111111111111<<12);
+            reg.ALU |= (0b111111111111<<12);
         }
         printf("IMM  ");
     } else {
-        halted = true;
         printf("     ");
     }
     if(mnemonic[indicator][getBits(reg.IR,6,9)] == "????") {
@@ -58,12 +57,13 @@ void Emulator::decode() {
         printAccumulator();
         printf("Machine Halted - undefined opcode\n");
     } else if(indicator == 3) {
-        //printf("JUMP at %s", reg.IC);
+        ALUOp(17, true, false);
+        if(op == 0 || reg.MDR == op)
+            sprintf(reg.IC, "%0x", reg.MAR);
         printAccumulator();
     } else if(indicator == 2) {
         ALUOp(getBits(reg.IR, 6, 9), true, true);
         printAccumulator();
-        //printf("ADDOP at %s", reg.IC);
     } else if(indicator == 1) {
         if(getBits(reg.IR, 6, 9) == 0) {
             ALUOp(0, false, true);
@@ -74,35 +74,59 @@ void Emulator::decode() {
         }
         printAccumulator();
     } else {
-        halted = true;
         printAccumulator();
-        printf("Machine Halted - HALT instruction executed\n");
+        if(op == 0) {
+            halted = true;
+            printf("Machine Halted - HALT instruction executed\n");
+        }
     }
 }
 
 bool Emulator::ALUOp(int op, bool useAC, bool toAC) {
     std::bitset<24> operand = useAC ? reg.AC : 0;
-    reg.ALU = EA.to_ulong();
     switch(op) {
         /** ADD **/
         case 0:
             reg.ALU = useAC ? reg.ALU.to_ulong() + reg.AC.to_ulong() : reg.ALU; // cheating, but we only have 24 bits, not 64
         break;
         case 1:
-            reg.ALU = reg.AC.to_ulong() - EA.to_ulong(); // cheating, but we only have 24 bits, not 64    
+            reg.ALU = reg.AC.to_ulong() - reg.ALU.to_ulong(); // cheating, but we only have 24 bits, not 64    
         break;
         case 2:
             reg.ALU = 0;
         break;
+        case 3:
+            reg.ALU = ~reg.AC;
+        break;
+        case 4:
+            reg.ALU = reg.ALU & reg.AC;
+        break;
+        case 5:
+            reg.ALU = reg.ALU | reg.AC;
+        break;
+        case 6:
+            reg.ALU = reg.ALU ^ reg.AC;
+        break;
         case 16:
             reg.ALU = reg.AC;
         break;
+        case 17:
+            if(reg.AC.test(23) == 1) 
+                reg.ALU = 2;
+            else if(reg.AC.to_ulong() > 0)
+                reg.ALU = 3;
+            else
+                reg.ALU = 1;
+        break;             
+        default:
+            halted = true;
+        break;
     }
-    if(toAC) {
+    
+    if(toAC) 
         reg.AC = reg.ALU;
-    } else if(!toAC) {
+    else if(!toAC) 
         reg.MDR = reg.ALU;
-    }
     return true;
 }
 int Emulator::getBits(std::bitset<24> bits, int start, int end) {
