@@ -31,53 +31,76 @@ int Emulator::getMemory() {
     int addr = int(reg.MAR.to_ulong())*3; 
     return ((memory[addr]<<16) | (memory[addr+1]<<8) | (memory[addr+2]));
 }
+
+void Emulator::halt(int &type, int &op, std::string adr, std::string reason) {
+    printf("%s  ", adr.c_str());
+    type = 0;
+    op = halted = 1;
+    errmsg = reason;
+}
+
 void Emulator::decode() {
-    int indicator = getBits(reg.IR, 10, 11);
-    int op = getBits(reg.IR, 6, 9);
-    int am = getBits(reg.IR, 2, 5);
-    std::string instr = mnemonic[indicator][getBits(reg.IR, 6, 9)];
-
-
+    int indicator = getBits(reg.IR, 10, 11);// what type of instruction is it
+    int op = getBits(reg.IR, 6, 9);         // what op in that type is it
+    int am = getBits(reg.IR, 2, 5);         // what is the addressing mode
+    /** Get and print our mnemonic **/
+    std::string instr = mnemonic[indicator][getBits(reg.IR, 6, 9)]; 
     printf("%s  ", instr.c_str());
-    if(am == 0 && indicator != 0) {
-        reg.MAR = getBits(reg.IR, 12, 23);
-        reg.ALU = getMemory();
-        printf("%03x  ", int(reg.MAR.to_ulong()));
-    } else if(am == 1 && indicator != 0) {
-        reg.ALU = getBits(reg.IR, 12, 23);
-        if(reg.IR.test(23) == 1) {
-            reg.ALU |= (0b111111111111<<12);
-        }
-        printf("IMM  ");
-    } else {
-        printf("     ");
-    }
-    if(mnemonic[indicator][getBits(reg.IR,6,9)] == "????") {
-        halted = true;
-        printAccumulator();
-        printf("Machine Halted - undefined opcode\n");
-    } else if(indicator == 3) {
-        ALUOp(17, true, false);
-        if(op == 0 || reg.MDR == op)
-            sprintf(reg.IC, "%0x", reg.MAR);
-        printAccumulator();
-    } else if(indicator == 2) {
-        ALUOp(getBits(reg.IR, 6, 9), true, true);
-        printAccumulator();
-    } else if(indicator == 1) {
-        if(getBits(reg.IR, 6, 9) == 0) {
-            ALUOp(0, false, true);
-        }
-        if(getBits(reg.IR, 6, 9) == 1) {
-            ALUOp(16, true, false);
-            putMemory(memory, reg.MAR, reg.MDR);
-        }
-        printAccumulator();
-    } else {
-        printAccumulator();
-        if(op == 0) {
-            halted = true;
-            printf("Machine Halted - HALT instruction executed\n");
+    /** Handle HALT instruction **/
+    if(indicator == 0 && op == 0) 
+        halt(indicator, op, "   ", "HALT instruction executed");
+    /** Handle undefined opcodes  **/
+    else if(instr == "????")  
+        halt(indicator, op, "   ", "undefined opcode");
+    /** Handle unimplemented opcodes **/
+    else if(reg.IR.test(9)) 
+        halt(indicator, op, "   ", "unimplemented opcode");
+    /** Handle illegal addressing modes **/
+    else if(amodes[indicator][op] != "i" && amodes[indicator][op].find(std::to_string(am)) == std::string::npos)  
+        halt(indicator, op, "???", "illegal addressing mode");
+    /** Handle unimplemented addressing modes  **/
+    else if(am == 2 || am == 4 || am == 6) 
+        halt(indicator, op, "???", "unimplemented addressing mode");
+    /** If it's here then it's a valid instruction and we will execute
+     *  set up flags (ALU op and EA)
+     **/
+    else {
+        if(am == 0 && indicator != 0) {
+            reg.MAR = getBits(reg.IR, 12, 23);
+            reg.ALU = getMemory();
+            printf("%03x  ", int(reg.MAR.to_ulong()));
+        } else if(am == 1 && indicator != 0) {
+            reg.ALU = getBits(reg.IR, 12, 23);
+            if(reg.IR.test(23) == 1) {
+                reg.ALU |= (0b111111111111<<12);
+            }
+            printf("IMM  ");
+        } else {
+            printf("     ");
+        }  
+        if(indicator == 3) {
+            ALUOp(17, true, false);
+            if(op == 0 || reg.MDR == op)
+                sprintf(reg.IC, "%0x", reg.MAR);
+            printAccumulator();
+        } else if(indicator == 2) {
+            ALUOp(getBits(reg.IR, 6, 9), true, true);
+            printAccumulator();
+        } else if(indicator == 1) {
+            if(getBits(reg.IR, 6, 9) == 0) {
+                ALUOp(0, false, true);
+            }
+            if(getBits(reg.IR, 6, 9) == 1) {
+                ALUOp(16, true, false);
+                putMemory(memory, reg.MAR, reg.MDR);
+            }
+            printAccumulator();
+        } else {
+            printAccumulator();
+            if(op == 0) {
+                halted = true;
+                printf("Machine Halted - HALT instruction executed\n");
+            }
         }
     }
 }

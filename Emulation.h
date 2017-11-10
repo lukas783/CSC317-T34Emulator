@@ -33,8 +33,10 @@ private:
     byte* memory;
     Registers reg;
     bool halted;
+    std::string errmsg = "";
     int getMemory();
     int getBits(std::bitset<24> bits, int start, int end);
+    void halt(int &type, int &op, std::string adr, std::string reason);
     void decode();
     bool memOp();
     bool ALUOp(int op, bool useAC, bool toAC);
@@ -57,4 +59,14 @@ const std::vector<std::vector<std::string>> mnemonic = {
     "????", "????", "????", "????", "????", "????", "????", "????"}
 };
 
+const std::vector<std::vector<std::string>> amodes = { // i apologize if you are reading this
+    /** Misc legal addressing modes **/
+    {"i", "i"},
+    /** MemOps legal addressing modes **/
+    {"01246", "0246", "0246", "", "", "", "", "", "01", "0", "0"},
+    /** Logic/Arithmetic legal addressing modes **/
+    {"01246", "01246", "i", "i", "01246", "01246", "01246", "", "01", "01", "i"},
+    /** Jump instruction legal addressing modes **/
+    {"0246", "0246", "0246", "0246"},
+};
 #endif
