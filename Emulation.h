@@ -34,13 +34,11 @@ private:
     Registers reg;
     bool halted;
     std::string errmsg = "";
-    int getMemory();
+    void getMemory();
     int getBits(std::bitset<24> bits, int start, int end);
     void halt(int &type, int &op, std::string adr, std::string reason);
-    void decode();
-    bool memOp();
-    bool ALUOp(int op, bool useAC, bool toAC);
-    bool BranchOp();
+    void IDandEXE();
+    void ALUOp(int flags, int ea);
     void printAccumulator();
 };
 

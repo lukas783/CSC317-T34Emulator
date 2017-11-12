@@ -16,7 +16,7 @@ Emulator::Emulator(char* ic) {
 }
 
 Emulator::~Emulator() {
-    
+    // new isnt used, no need to clean anything up
 }
 
 /** 
@@ -27,22 +27,27 @@ void Emulator::setMemAddress(byte* mem) {
     memory = mem;
 }
 
-int Emulator::getMemory() {
+void Emulator::getMemory() {
     int addr = int(reg.MAR.to_ulong())*3; 
-    return ((memory[addr]<<16) | (memory[addr+1]<<8) | (memory[addr+2]));
+    reg.MDR = ((memory[addr]<<16) | (memory[addr+1]<<8) | (memory[addr+2]));
 }
 
 void Emulator::halt(int &type, int &op, std::string adr, std::string reason) {
-    printf("%s  ", adr.c_str());
+    if(adr == "000") 
+        printf("%03x  ", getBits(reg.IR, 12, 23));
+    else 
+        printf("%s  ", adr.c_str());
     type = 0;
     op = halted = 1;
     errmsg = reason;
 }
 
-void Emulator::decode() {
+void Emulator::IDandEXE() {
     int indicator = getBits(reg.IR, 10, 11);// what type of instruction is it
     int op = getBits(reg.IR, 6, 9);         // what op in that type is it
     int am = getBits(reg.IR, 2, 5);         // what is the addressing mode
+    int ea = 0;                             // the op2 (effective address)
+    int ALUFlags = 0;                       // flags for the ALU  
     /** Get and print our mnemonic **/
     std::string instr = mnemonic[indicator][getBits(reg.IR, 6, 9)]; 
     printf("%s  ", instr.c_str());
@@ -51,106 +56,127 @@ void Emulator::decode() {
         halt(indicator, op, "   ", "HALT instruction executed");
     /** Handle undefined opcodes  **/
     else if(instr == "????")  
-        halt(indicator, op, "   ", "undefined opcode");
+        halt(indicator, op, (am == 1) ? "IMM" : "000", "undefined opcode");
     /** Handle unimplemented opcodes **/
     else if(reg.IR.test(9)) 
-        halt(indicator, op, "   ", "unimplemented opcode");
+        halt(indicator, op, (am == 1) ? "IMM" : "000", "unimplemented opcode");
     /** Handle illegal addressing modes **/
     else if(amodes[indicator][op] != "i" && amodes[indicator][op].find(std::to_string(am)) == std::string::npos)  
         halt(indicator, op, "???", "illegal addressing mode");
     /** Handle unimplemented addressing modes  **/
     else if(am == 2 || am == 4 || am == 6) 
         halt(indicator, op, "???", "unimplemented addressing mode");
-    /** If it's here then it's a valid instruction and we will execute
-     *  set up flags (ALU op and EA)
-     **/
-    else {
-        if(am == 0 && indicator != 0) {
-            reg.MAR = getBits(reg.IR, 12, 23);
-            reg.ALU = getMemory();
-            printf("%03x  ", int(reg.MAR.to_ulong()));
-        } else if(am == 1 && indicator != 0) {
-            reg.ALU = getBits(reg.IR, 12, 23);
-            if(reg.IR.test(23) == 1) {
-                reg.ALU |= (0b111111111111<<12);
-            }
-            printf("IMM  ");
-        } else {
-            printf("     ");
-        }  
-        if(indicator == 3) {
-            ALUOp(17, true, false);
-            if(op == 0 || reg.MDR == op)
-                sprintf(reg.IC, "%0x", reg.MAR);
-            printAccumulator();
-        } else if(indicator == 2) {
-            ALUOp(getBits(reg.IR, 6, 9), true, true);
-            printAccumulator();
-        } else if(indicator == 1) {
-            if(getBits(reg.IR, 6, 9) == 0) {
-                ALUOp(0, false, true);
-            }
-            if(getBits(reg.IR, 6, 9) == 1) {
-                ALUOp(16, true, false);
-                putMemory(memory, reg.MAR, reg.MDR);
-            }
-            printAccumulator();
-        } else {
-            printAccumulator();
-            if(op == 0) {
-                halted = true;
-                printf("Machine Halted - HALT instruction executed\n");
-            }
+    /** Set up addressing properly | immediate or direct; set EA accordingly **/
+    else if(am == 1) {
+        printf("IMM  ");
+        ea = (reg.IR.test(23) == 1) ? (getBits(reg.IR, 12, 23) | (0xFFF<<12)) : getBits(reg.IR, 12, 23);
+    } else if(am == 0) {
+        reg.MAR = getBits(reg.IR, 12, 23);
+        getMemory();
+        ea = int(reg.MDR.to_ulong());
+        printf("%03x  ", int(reg.MAR.to_ulong()));
+    }
+    /** Set our output flags, all except LD follow a similar output for their instr type**/
+    ALUFlags |= (indicator << 4);
+    ALUFlags |= op;
+    /** Override the effective address (op2) for jump instructions**/
+    if(indicator == 3) {
+        ALUFlags |= (op<<7);
+        ea = int(reg.MAR.to_ulong()); // if we are jumping, our jump to address is weird
+    }
+    /** Set the alu op type flag, if its a ld instr we need to override it to output to ac **/
+    if(indicator == 2)
+        ALUFlags |= (0b1<<6);
+    if(indicator == 1) {
+        if(op == 0) 
+            ALUFlags = (0b10<<4); // add 0 to ea ; write to ac
+        if(op == 1) {
+            ea = 0;
+            ALUFlags = (0b101<<4); // add ac to 0 and write to mdr
+        }
+        if(op == 2) {
+            /** Store our loaded data temporarily, sign extend if necessary **/
+            int temp = reg.MDR.to_ulong();
+            if(temp & 0x800000)
+                temp |= (255<<24);
+            /** Set EA to 0 and flags to put AC into MDR, put MDR into memory at MAR **/
+            ALUFlags = (0b101<<4); // set to put AC into MDR
+            ea = 0;
+            ALUOp(ALUFlags, ea);
+            putMemory(memory, reg.MAR, reg.MDR);
+            /** Set up a load op by putting temp storage into EA and setting flags **/
+            ALUFlags = (0b10<<4);
+            ea = temp;     
         }
     }
+    /** Perform final ALUOp **/
+    ALUOp(ALUFlags, ea);
+    /** If it's a store, we need to make sure it stores **/
+    if(indicator == 1 && op == 1) 
+        putMemory(memory, reg.MAR, reg.MDR);
 }
 
-bool Emulator::ALUOp(int op, bool useAC, bool toAC) {
-    std::bitset<24> operand = useAC ? reg.AC : 0;
-    switch(op) {
-        /** ADD **/
-        case 0:
-            reg.ALU = useAC ? reg.ALU.to_ulong() + reg.AC.to_ulong() : reg.ALU; // cheating, but we only have 24 bits, not 64
-        break;
+void Emulator::ALUOp(int flags, int ea) {
+    /** Flags breakdown
+     * bits [7,8] - 00 for unconditional, 01 for OPZ, 10 for OPN, 11 for OPP
+     * bits [6,6] - op1 is accumulator if asserted, otherwise 0
+     * bits [4,5] - output to mdr on 1, ac on 2, ic on 3
+     * bits [0,3] - op type (add/sub/clr/com/etc)
+     **/
+    int op1 = (flags & (0b1<<6)) ? reg.AC.to_ulong() : 0; //pick our op1, op2 is always EA
+    if(op1 & 0x800000)
+        op1 |= (255<<24); // sign extend if needed for proper mathz
+    int output = (flags & (0b11<<4)) >> 4;      // get output type flags
+    int op = (flags & (0b1111));                // get op type flags
+    int conditional = (flags & (0b11<<7)) >> 7; // get conditional flags
+    switch(conditional) {
         case 1:
-            reg.ALU = reg.AC.to_ulong() - reg.ALU.to_ulong(); // cheating, but we only have 24 bits, not 64    
+            if(reg.AC != 0) return;
         break;
         case 2:
-            reg.ALU = 0;
+            if( !(reg.AC.to_ulong() & (0b1<<23)) ) return;
         break;
         case 3:
-            reg.ALU = ~reg.AC;
-        break;
-        case 4:
-            reg.ALU = reg.ALU & reg.AC;
-        break;
-        case 5:
-            reg.ALU = reg.ALU | reg.AC;
-        break;
-        case 6:
-            reg.ALU = reg.ALU ^ reg.AC;
-        break;
-        case 16:
-            reg.ALU = reg.AC;
-        break;
-        case 17:
-            if(reg.AC.test(23) == 1) 
-                reg.ALU = 2;
-            else if(reg.AC.to_ulong() > 0)
-                reg.ALU = 3;
-            else
-                reg.ALU = 1;
-        break;             
-        default:
-            halted = true;
+            if( (reg.AC.to_ulong() & (0b1<<23)) ) return;
         break;
     }
-    
-    if(toAC) 
-        reg.AC = reg.ALU;
-    else if(!toAC) 
-        reg.MDR = reg.ALU;
-    return true;
+    switch(op) {
+        case 0: // ADD
+            reg.ALU = op1 + ea;
+        break;
+        case 1: // SUB
+            reg.ALU = op1 - ea;
+        break;
+        case 2: // CLR
+            reg.ALU = 0;
+        break;
+        case 3: // COM
+            reg.ALU = ~op1+1;
+        break;
+        case 4: // AND
+            reg.ALU = op1 & ea;
+        break;
+        case 5: // ORR
+            reg.ALU = op1 | ea;
+        break;
+        case 6: // XOR
+            reg.ALU = op1 ^ ea;
+        break;
+
+    }
+    switch(output) {
+        case 0: // IGNORE
+            break;
+        case 1: // MemOp
+            reg.MDR = reg.ALU;
+        break;
+        case 2: // AC Op
+            reg.AC = reg.ALU;
+        break;
+        case 3: // JOp
+            sprintf(reg.IC, "%0x", reg.ALU);
+        break;
+    }
 }
 int Emulator::getBits(std::bitset<24> bits, int start, int end) {
     int n = end-start + 1;
@@ -192,8 +218,10 @@ void Emulator::run() {
         /** Increment the IC..**/ // <-- re-do later by sending off to the ALU to add 1 instead of using sprintf
         sprintf(reg.IC, "%0x", std::stoi(reg.IC, nullptr, 16)+1);
         /** decode the instruction in reg.IR and set regs/flags as needed **/
-        decode( );
-        /** execute what needs to be executed **/
+        IDandEXE();
+        printAccumulator();
+        if(errmsg != "")
+            printf("Machine Halted - %s", errmsg.c_str());
     }   
 
 }
