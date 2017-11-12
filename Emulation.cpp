@@ -205,10 +205,10 @@ void Emulator::ALUOp(int flags, int ea) {
             if(reg.AC != 0) return;
         break;
         case 2:
-            if( !(reg.AC.to_ulong() & (0b1<<23)) ) return; // if not < 0, exit ALU
+            if( reg.AC.to_ulong() == 0 || !(reg.AC.to_ulong() & (0b1<<23)) ) return; // if not < 0, exit ALU
         break;
         case 3:
-            if( (reg.AC.to_ulong() & (0b1<<23)) ) return; // if not > 0, exit ALU
+            if( reg.AC.to_ulong() == 0 || (reg.AC.to_ulong() & (0b1<<23)) ) return; // if not > 0, exit ALU
         break;
     }
     switch(op) {
