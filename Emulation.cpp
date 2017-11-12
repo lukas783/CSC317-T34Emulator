@@ -1,8 +1,20 @@
 #include "Emulation.h"
 
+/**
+ * Registers()
+ * The constructor, instatiates an object usable by a class/program. In
+ * our case it is just to create the register file we will be using,
+ * nothing new needs to be created or assigned initially
+ **/
 Registers::Registers() {
     // do nothin!
 }
+/**
+ * ~Registers()
+ * The destructor for this struct, this handles cleaning up dynamic data.
+ * In our case it is used to free up the IC register as that does include
+ * dynamic data created with new outside of our control
+ **/
 Registers::~Registers() {
     if(IC != nullptr) {
         delete[] IC;
@@ -10,38 +22,82 @@ Registers::~Registers() {
 }
 
 
+/**
+ * Emulator(char*)
+ * The constructor of this class. Takes in a starting instruction counter (PC)
+ * and sets the local IC register to the given value, then sets halted to false
+ * so the emulator can start without any issues.
+ **/
 Emulator::Emulator(char* ic) {
     reg.IC = ic;
     halted = false;
 }
 
+/**
+ * ~Emulator()
+ * The class destructor, no dynamic information is created so this isn't
+ * used other than by the underlying OS to destroy stuff that I have no
+ * control over.
+ **/
 Emulator::~Emulator() {
     // new isnt used, no need to clean anything up
 }
 
 /** 
- * A simple function to reassign the pointer of our memory array to the 
- * same pointer in our class so our class has access to memory.
+ * void setMemAddress(byte*)
+ * A function used in setting up the emulator by setting the class memory
+ * address pointer to an external one. This is done so the memory can be
+ * populated outside the emulator and control of the memory and its contents
+ * can be passed to the emulator when ready.
  **/
 void Emulator::setMemAddress(byte* mem) {
     memory = mem;
 }
 
-void Emulator::getMemory() {
-    int addr = int(reg.MAR.to_ulong())*3; 
-    reg.MDR = ((memory[addr]<<16) | (memory[addr+1]<<8) | (memory[addr+2]));
-}
-
+/**
+ * void halt(int&, int&, std::string, std::string)
+ * This is a helper function for changing operations to a NOP instruction
+ * and printing addressing information and setting the error message for 
+ * invalid instructions. If an instruction uses an undefined/unimplemented
+ * opcode or an unimplemented/illegal addressing mode or the emulation is
+ * halted, then this function will change the current operation to a NOP,
+ * output the effective address if possible and set the emulator to halt
+ * with a specific reason
+ * 
+ * Inputs - int& - the instruction type to be changed to a NOP
+ *          int& - the instruction operation to be changed to a NOP
+ *          std::string - the effective address to be output if possible
+ *          std::string - the message to display after "Machine Halted - "
+ * Outputs - no value output, physical output to terminal for the effective
+ *           address
+ **/
 void Emulator::halt(int &type, int &op, std::string adr, std::string reason) {
     if(adr == "000") 
         printf("%03x  ", getBits(reg.IR, 12, 23));
     else 
         printf("%s  ", adr.c_str());
-    type = 0;
-    op = halted = 1;
-    errmsg = reason;
+    type = 0;           //NOP is of instruction type 00
+    op = halted = 1;    // NOP is of instruction operation 01
+    errmsg = reason;    // Set the error message 
 }
 
+/**
+ * void IDandEXE()
+ * The instruction decoder and instruction executor, the function starts by
+ * extracting certain bits from the IR register to decode what type of
+ * instruction it is, what operation it is performing, what addressing mode
+ * it is operating under, and using that what the effective address is. This
+ * function also detects illegal operations, such as invalid instructions, or
+ * illegal/unimplemented/undefined opcodes/addressing modes. Once the instruction
+ * has been declared legal and the flags have been set for the ALU accordingly,
+ * the EA and ALU flags are passed to the ALU to perform the instruction and
+ * control is handed back to the main loop to execute the next instruction.
+ * 
+ * Inputs - none
+ * 
+ * Outputs - no value output, physical output to terminal as the mnemonic for
+ *           the current instruction and the effective address for the instruction
+ **/
 void Emulator::IDandEXE() {
     int indicator = getBits(reg.IR, 10, 11);// what type of instruction is it
     int op = getBits(reg.IR, 6, 9);         // what op in that type is it
@@ -72,7 +128,7 @@ void Emulator::IDandEXE() {
         ea = (reg.IR.test(23) == 1) ? (getBits(reg.IR, 12, 23) | (0xFFF<<12)) : getBits(reg.IR, 12, 23);
     } else if(am == 0) {
         reg.MAR = getBits(reg.IR, 12, 23);
-        getMemory();
+        getMemory(memory, reg.MAR, reg.MDR);
         ea = int(reg.MDR.to_ulong());
         printf("%03x  ", int(reg.MAR.to_ulong()));
     }
@@ -116,6 +172,21 @@ void Emulator::IDandEXE() {
         putMemory(memory, reg.MAR, reg.MDR);
 }
 
+/**
+ * void ALUOp(int, int)
+ * This is the ALU, it performs operations on two operands at a time, if the
+ * bit 6 flag is set then operand 1 is the accumulator, otherwise it is 0, 
+ * operand 2 is always the EA which is calculated/sign-extended before entering
+ * the ALU. Once the input has been decided the operation and conditions are
+ * pulled from bits 0-3 and 7-8 respectively. If conditions are met then the
+ * selected operation is ran between the two operands. Valid operations include
+ * addition, subtraction, clearing, two's-complementing, and, or, and exclusive or.
+ * Once the operation has ran output is determined by bits 4-5 and can route the
+ * output to the AC register, MDR register, or the IC register.
+ * 
+ * Inputs - int - the flags for input/operation/output of the ALU
+ *          int - the second operand (effective address) for ALU operations.
+ **/
 void Emulator::ALUOp(int flags, int ea) {
     /** Flags breakdown
      * bits [7,8] - 00 for unconditional, 01 for OPZ, 10 for OPN, 11 for OPP
@@ -130,14 +201,14 @@ void Emulator::ALUOp(int flags, int ea) {
     int op = (flags & (0b1111));                // get op type flags
     int conditional = (flags & (0b11<<7)) >> 7; // get conditional flags
     switch(conditional) {
-        case 1:
+        case 1: // conditional zero, if not zero, exit ALU
             if(reg.AC != 0) return;
         break;
         case 2:
-            if( !(reg.AC.to_ulong() & (0b1<<23)) ) return;
+            if( !(reg.AC.to_ulong() & (0b1<<23)) ) return; // if not < 0, exit ALU
         break;
         case 3:
-            if( (reg.AC.to_ulong() & (0b1<<23)) ) return;
+            if( (reg.AC.to_ulong() & (0b1<<23)) ) return; // if not > 0, exit ALU
         break;
     }
     switch(op) {
@@ -178,6 +249,16 @@ void Emulator::ALUOp(int flags, int ea) {
         break;
     }
 }
+
+/**
+ * int getBits(std::bitset<24>, int, int)
+ * A helper function to extract specific bits from a 24 bit bitset
+ * 
+ * Inputs:  std::bitset<24> - the bitset to extract from
+ *          int - the bit index to start extracting
+ *          int - the bit index to stop extracting (inclusive)
+ * Outputs: The value of bits from start to end
+ **/
 int Emulator::getBits(std::bitset<24> bits, int start, int end) {
     int n = end-start + 1;
     int extractedValue = 0;
@@ -187,6 +268,16 @@ int Emulator::getBits(std::bitset<24> bits, int start, int end) {
     return extractedValue;
 }
 
+/**
+ * void printAccumulator()
+ * A helper function to output the current state of the accumulator and
+ * the index registers.
+ * 
+ * Inputs: None
+ * 
+ * Outputs: no value output, but physical output to terminal containing
+ *          the value of the accumulator register and the 4 index registers
+ **/
 void Emulator::printAccumulator() {
     printf("AC[%06x]  X0[%03x]  X1[%03x]  X2[%03x]  X3[%03x]\n",
     int(reg.AC.to_ulong()),
@@ -198,18 +289,20 @@ void Emulator::printAccumulator() {
 }
 
 /** 
- * The beating heart of our emulator, it will handle continuous execution
- * of the program, fetching of the next instruction, interfacing between
- * memory and registers, and outputting to screen from this point on
- *
- * note to self: maybe take a note from python and do some kind of REPL?
- * Read - look at IC, decode and prepare
- * Eval - process the instruction and modify mem/regs as needed
- * Print - print the addr, value, instr, ac reg, and x0-3
- * Loop - increment IC if non-branch and loop back to R (Read)
+ * void run()
+ * The beating heart of this emulator. This will take the current instruction
+ * and store it's value in the instruction register, then increment itself by 1.
+ * Then the function will hand off to the decode and execute instruction and
+ * output the contents of the accumulator and index registers. The loop only stops
+ * when a halt instruction is executed or the end of memory is hit. If the emulator
+ * is halted then a error msg will display stating what caused the halt.
+ * 
+ * Inputs - none
+ * 
+ * Outputs - no value output, physical output to the screen containing the current
+ *           instruction address and contents as well as error messages.
  **/
 void Emulator::run() {
-    //char* newIC = new char[4];
     while(!halted && strcmp(reg.IC, "fff")) {
         /** You see, it's simple... we fetch the instruction.. **/
         reg.IR = std::stoi(getWord(memory, reg.IC), nullptr, 10);
@@ -220,7 +313,8 @@ void Emulator::run() {
         /** decode the instruction in reg.IR and set regs/flags as needed **/
         IDandEXE();
         printAccumulator();
-        if(errmsg != "")
+        /** If we have an error msg, display it **/
+        if(errmsg != "") 
             printf("Machine Halted - %s", errmsg.c_str());
     }   
 

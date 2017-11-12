@@ -125,9 +125,34 @@ void parse(byte *memarray, std::string addrs) {
     }
 }
 
+/**
+ * void putMemory(byte*, std::bitset<12>, std::bitset<24>)
+ * Puts the value in std::bitset<24> into the byte* array at 24-bit word offset of
+ * std::bitset<12>, using bitwise operations to store one byte at a time;
+ * 
+ * Inputs - byte* - the static memory
+ *          std::bitset<12> - the 24-bit word offset to store in memory
+ *          std::bitset<24> - the value to store at the 24-bit word offset in memory
+ * Outputs - none
+ **/
 void putMemory(byte *memarray, std::bitset<12> mar, std::bitset<24> mdr) {
     int addr = int(mar.to_ulong())*3;
     memarray[addr] = (mdr.to_ulong() >> 16) & 0xFF;
     memarray[addr+1] = (mdr.to_ulong() >> 8) & 0xFF;
     memarray[addr+2] = (mdr.to_ulong() >> 0) & 0xFF;
+}
+
+/**
+ * void getMemory(byte*, std::bitset<12>, std::bitset<24>&)
+ * A function to retrieve the contents at a specific offset in a memory array
+ * and store it's found value into a std::bitset<24>
+ * 
+ * Inputs - byte* - the static memory
+ *          std::bitset<12> - the 24-bit word offset to go to in memory
+ *          std::bitset<24> - the bitset to store the calculated value
+ * Outputs - none
+ **/
+void getMemory(byte* memory, std::bitset<12> mar, std::bitset<24> &mdr) {
+    int addr = int(mar.to_ulong())*3; 
+    mdr = ((memory[addr]<<16) | (memory[addr+1]<<8) | (memory[addr+2]));
 }
