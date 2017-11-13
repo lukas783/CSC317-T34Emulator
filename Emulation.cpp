@@ -245,7 +245,7 @@ void Emulator::ALUOp(int flags, int ea) {
             reg.AC = reg.ALU;
         break;
         case 3: // JOp
-            sprintf(reg.IC, "%0x", reg.ALU);
+            sprintf(reg.IC, "%0x", ea);
         break;
     }
 }
@@ -315,7 +315,7 @@ void Emulator::run() {
         printAccumulator();
         /** If we have an error msg, display it **/
         if(errmsg != "") 
-            printf("Machine Halted - %s", errmsg.c_str());
+            printf("Machine Halted - %s\n", errmsg.c_str());
     }   
 
 }
