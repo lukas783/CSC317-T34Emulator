@@ -114,8 +114,8 @@ void Emulator::IDandEXE() {
     else if(instr == "????")  
         halt(indicator, op, (am == 1) ? "IMM" : "000", "undefined opcode");
     /** Handle unimplemented opcodes **/
-    else if(reg.IR.test(9)) 
-        halt(indicator, op, (am == 1) ? "IMM" : "000", "unimplemented opcode");
+    //else if(reg.IR.test(9)) 
+    //    halt(indicator, op, (am == 1) ? "IMM" : "000", "unimplemented opcode");
     /** Handle illegal addressing modes **/
     else if(amodes[indicator][op] != "i" && amodes[indicator][op].find(std::to_string(am)) == std::string::npos)  
         halt(indicator, op, "???", "illegal addressing mode");
