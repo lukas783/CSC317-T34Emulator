@@ -132,6 +132,8 @@ void Emulator::IDandEXE() {
         ea = int(reg.MDR.to_ulong());
         printf("%03x  ", int(reg.MAR.to_ulong()));
     }
+    /** Handle X ops (indexing related) **/
+    
     /** Set our output flags, all except LD follow a similar output for their instr type**/
     ALUFlags |= (indicator << 4);
     ALUFlags |= op;
@@ -164,6 +166,9 @@ void Emulator::IDandEXE() {
             ALUFlags = (0b10<<4);
             ea = temp;     
         }
+        if(op == 8) {
+            
+        }
     }
     /** Perform final ALUOp **/
     ALUOp(ALUFlags, ea);
@@ -189,9 +194,10 @@ void Emulator::IDandEXE() {
  **/
 void Emulator::ALUOp(int flags, int ea) {
     /** Flags breakdown
+     * bits [9,10]- index reg output | the value directly correlates to the register
      * bits [7,8] - 00 for unconditional, 01 for OPZ, 10 for OPN, 11 for OPP
      * bits [6,6] - op1 is accumulator if asserted, otherwise 0
-     * bits [4,5] - output to mdr on 1, ac on 2, ic on 3
+     * bits [4,5] - output to idx reg on 0, mdr on 1, ac on 2, ic on 3
      * bits [0,3] - op type (add/sub/clr/com/etc)
      **/
     int op1 = (flags & (0b1<<6)) ? reg.AC.to_ulong() : 0; //pick our op1, op2 is always EA
@@ -236,8 +242,12 @@ void Emulator::ALUOp(int flags, int ea) {
 
     }
     switch(output) {
-        case 0: // IGNORE
-            break;
+        case 0: // IGNORE | Possibly output to an index reg?
+            //If this will output to index reg, it'll have to do
+            //a getBit op to find which index reg and then output ALU
+            // to X[idx] like the rest
+            reg.X[(flags & (0b11<<9))>>9] = reg.ALU.to_ulong(); // TODO: change this to verify it is 12-bits
+        break;
         case 1: // MemOp
             reg.MDR = reg.ALU;
         break;
