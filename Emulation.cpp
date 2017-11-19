@@ -133,13 +133,15 @@ void Emulator::IDandEXE() {
         printf("%03x  ", int(reg.MAR.to_ulong()));
     }
     /** Handle X ops (indexing related) **/
-    
     /** Set our output flags, all except LD follow a similar output for their instr type**/
     ALUFlags |= (indicator << 4);
+    if(op >= 8) 
+        ALUFlags = (1<<7);
     ALUFlags |= op;
+
     /** Override the effective address (op2) for jump instructions**/
     if(indicator == 3) {
-        ALUFlags |= (op<<7);
+        ALUFlags |= (op<<8);
         ea = int(reg.MAR.to_ulong()); // if we are jumping, our jump to address is weird
     }
     /** Set the alu op type flag, if its a ld instr we need to override it to output to ac **/
@@ -170,6 +172,7 @@ void Emulator::IDandEXE() {
             
         }
     }
+    ALUFlags |= (getBits(reg.IR, 0, 1) << 10);
     /** Perform final ALUOp **/
     ALUOp(ALUFlags, ea);
     /** If it's a store, we need to make sure it stores **/
@@ -194,18 +197,22 @@ void Emulator::IDandEXE() {
  **/
 void Emulator::ALUOp(int flags, int ea) {
     /** Flags breakdown
-     * bits [9,10]- index reg output | the value directly correlates to the register
-     * bits [7,8] - 00 for unconditional, 01 for OPZ, 10 for OPN, 11 for OPP
-     * bits [6,6] - op1 is accumulator if asserted, otherwise 0
-     * bits [4,5] - output to idx reg on 0, mdr on 1, ac on 2, ic on 3
-     * bits [0,3] - op type (add/sub/clr/com/etc)
+     * bits [10,11]- index reg output | the value directly correlates to the register
+     * bits [8,9] - 00 for unconditional, 01 for OPZ, 10 for OPN, 11 for OPP
+     * bits [6,7] - op1 is accumulator if asserted, otherwise 0
+     * bits [3,5] - output to idx reg on 1, mdr on 2, ac on 4, ic on 6
+     * bits [0,2] - op type (add/sub/clr/com/etc)
      **/
     int op1 = (flags & (0b1<<6)) ? reg.AC.to_ulong() : 0; //pick our op1, op2 is always EA
     if(op1 & 0x800000)
         op1 |= (255<<24); // sign extend if needed for proper mathz
-    int output = (flags & (0b11<<4)) >> 4;      // get output type flags
-    int op = (flags & (0b1111));                // get op type flags
-    int conditional = (flags & (0b11<<7)) >> 7; // get conditional flags
+    op1 = (flags & (0b1<<7)) ? reg.X[(flags & (0b11<<10)) >> 10].to_ulong() : op1;
+    if((flags & (0b1<<7)) && (op1 & 0x800))
+        op1 |= (0xFFFFF<<12);
+    int output = (flags & (0b111<<3)) >> 3;      // get output type flags
+    int op = (flags & (0b111));                // get op type flags
+    int conditional = (flags & (0b11<<8)) >> 8; // get conditional flags
+    printf("%d | ", (flags & (0b11<<6))>>6);
     switch(conditional) {
         case 1: // conditional zero, if not zero, exit ALU
             if(reg.AC != 0) return;
@@ -239,22 +246,21 @@ void Emulator::ALUOp(int flags, int ea) {
         case 6: // XOR
             reg.ALU = op1 ^ ea;
         break;
-
     }
     switch(output) {
-        case 0: // IGNORE | Possibly output to an index reg?
-            //If this will output to index reg, it'll have to do
-            //a getBit op to find which index reg and then output ALU
-            // to X[idx] like the rest
-            reg.X[(flags & (0b11<<9))>>9] = reg.ALU.to_ulong(); // TODO: change this to verify it is 12-bits
+        case 0: // IGNORE
         break;
-        case 1: // MemOp
+        case 1: // IDX reg output
+            //printf("%d | ", (flags & (0b11<<10))>>10);
+            reg.X[(flags & (0b11<<10))>>10] = reg.ALU.to_ulong(); // TODO: change this to verify it is 12-bits
+        break;
+        case 2: // MemOp
             reg.MDR = reg.ALU;
         break;
-        case 2: // AC Op
+        case 4: // AC Op
             reg.AC = reg.ALU;
         break;
-        case 3: // JOp
+        case 6: // JOp
             sprintf(reg.IC, "%0x", ea);
         break;
     }
