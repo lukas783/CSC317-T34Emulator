@@ -132,7 +132,6 @@ void Emulator::IDandEXE() {
         ea = int(reg.MDR.to_ulong());
         printf("%03x  ", int(reg.MAR.to_ulong()));
     }
-    /** Handle X ops (indexing related) **/
     /** Set our output flags, all except LD follow a similar output for their instr type**/
     ALUFlags |= (indicator << 4);
     if(op >= 8) 
@@ -197,22 +196,26 @@ void Emulator::IDandEXE() {
  **/
 void Emulator::ALUOp(int flags, int ea) {
     /** Flags breakdown
-     * bits [10,11]- index reg output | the value directly correlates to the register
+     * bits [10,11]- index reg being used | the value directly correlates to the register
      * bits [8,9] - 00 for unconditional, 01 for OPZ, 10 for OPN, 11 for OPP
-     * bits [6,7] - op1 is accumulator if asserted, otherwise 0
+     * bits [6,7] - op1 setter, 0 is 0, 1 is AC reg,  2 is IDX reg in
      * bits [3,5] - output to idx reg on 1, mdr on 2, ac on 4, ic on 6
      * bits [0,2] - op type (add/sub/clr/com/etc)
      **/
-    int op1 = (flags & (0b1<<6)) ? reg.AC.to_ulong() : 0; //pick our op1, op2 is always EA
+
+    /** Select our op1, decode the bit and sign extend as needed **/
+    int op1 = (flags & (0b1<<6)) ? reg.AC.to_ulong() : 0;
     if(op1 & 0x800000)
         op1 |= (255<<24); // sign extend if needed for proper mathz
     op1 = (flags & (0b1<<7)) ? reg.X[(flags & (0b11<<10)) >> 10].to_ulong() : op1;
     if((flags & (0b1<<7)) && (op1 & 0x800))
-        op1 |= (0xFFFFF<<12);
+        op1 |= (0xFFFFF<<12); // sign extension for index register math
+    /** Get ALU output, ALU operation type, and conditional arguments from the flags **/
     int output = (flags & (0b111<<3)) >> 3;      // get output type flags
     int op = (flags & (0b111));                // get op type flags
     int conditional = (flags & (0b11<<8)) >> 8; // get conditional flags
-    printf("%d | ", (flags & (0b11<<6))>>6);
+
+    /** Evaluate conditionals, if condition is met, continue, else short-circuit exit **/
     switch(conditional) {
         case 1: // conditional zero, if not zero, exit ALU
             if(reg.AC != 0) return;
@@ -224,6 +227,7 @@ void Emulator::ALUOp(int flags, int ea) {
             if( reg.AC.to_ulong() == 0 || (reg.AC.to_ulong() & (0b1<<23)) ) return; // if not > 0, exit ALU
         break;
     }
+    /** Evaluate expression; performs a specific operation on the op1 and ea, stores result in the ALU reg **/
     switch(op) {
         case 0: // ADD
             reg.ALU = op1 + ea;
@@ -247,6 +251,8 @@ void Emulator::ALUOp(int flags, int ea) {
             reg.ALU = op1 ^ ea;
         break;
     }
+
+    /** Handle the directed output; funnel the result in the ALU reg to it's chosen destination **/
     switch(output) {
         case 0: // IGNORE
         break;
