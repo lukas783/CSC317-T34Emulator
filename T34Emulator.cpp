@@ -85,16 +85,18 @@ char *readObj(char *filename, byte *memarray) {
         exit(2);
     }
     char *addr = new char[4];
-    int count = 0;
+    char *count = new char[4];
     char buffer[7] = "";
     while( in >> addr && in >> count) {
-        for(int i = 0; i < count; i++) {
+        int c = std::stoi(count, nullptr, 16);
+        for(int i = 0; i < c; i++) {
             in >> buffer;
             putWord(memarray, addr, buffer);
             sprintf(addr, "%0x", (std::stoi(addr, nullptr, 16) + 1));
         }
     }
     in.close();
+    delete[] count;
     return addr; // returns out the address for the prog counter
 }
 

@@ -121,13 +121,23 @@ void Emulator::IDandEXE() {
         halt(indicator, op, "???", "illegal addressing mode");
     
     /** Handle unimplemented addressing modes  **/
-    else if(am == 2 || am == 4 || am == 6) 
+    else if( am == 6) 
         halt(indicator, op, "???", "unimplemented addressing mode");
     
-    /** Set up addressing properly | immediate or direct; set EA accordingly **/
-    else if(am == 1) {
+    /** INDIRECT ADDRESSING | **/
+    else if(am == 4) {
+
+    /** INDEXED ADDRESSING | Get the index reg, use the addr field as an offset, load into EA **/
+    } else if(am == 2) {
+        reg.MAR = reg.X[getBits(reg.IR, 0, 1)].to_ulong()+getBits(reg.IR, 12, 23);
+        getMemory(memory, reg.MAR, reg.MDR);
+        ea = int(reg.MDR.to_ulong());
+        printf("%03x  ", int(reg.MAR.to_ulong()));
+    /** IMMEDIATE ADDRESSING | Convert the addr field into a sign extended 24-bit value and load into EA **/
+    } else if(am == 1) {
         printf("IMM  ");
         ea = (reg.IR.test(23) == 1) ? (getBits(reg.IR, 12, 23) | (0xFFF<<12)) : getBits(reg.IR, 12, 23);
+    /** DIRECT ADDRESSING | Get the value of the addr field, load the address from memory and into EA **/
     } else if(am == 0) {
         reg.MAR = getBits(reg.IR, 12, 23);
         getMemory(memory, reg.MAR, reg.MDR);
