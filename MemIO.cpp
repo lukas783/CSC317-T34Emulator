@@ -142,6 +142,17 @@ void putMemory(byte *memarray, std::bitset<12> mar, std::bitset<24> mdr) {
     memarray[addr+2] = (mdr.to_ulong() >> 0) & 0xFF;
 }
 
+/**
+ * void putHalfMemory(byte*, std::bitset<12>, std::bitset<24>)
+ * Puts the value in std::bitset<24> into the byte* array at 24-bit word offset of
+ * std::bitset<12>, using bitwise operations to store into only the upper half of 
+ * the memory word.
+ * 
+ * Inputs - byte* - the static memory
+ *          std::bitset<12> - the 24-bit word offset to store in memory
+ *          std::bitset<24> - the value to store at the 24-bit word offset in memory
+ * Outputs - none
+ **/
 void putHalfMemory(byte *memarray, std::bitset<12>mar, std::bitset<24> mdr) {
     int addr = int(mar.to_ulong())*3;
     mdr <<= 12; // position the mdr to clear unneccessary bits
