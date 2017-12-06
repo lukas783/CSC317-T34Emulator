@@ -126,7 +126,12 @@ void Emulator::IDandEXE() {
     
     /** INDIRECT ADDRESSING | **/
     else if(am == 4) {
-
+        reg.MAR = getBits(reg.IR, 12, 23);
+        getMemory(memory, reg.MAR, reg.MDR);
+        reg.MAR = getBits(reg.MDR, 12, 23);
+        getMemory(memory, reg.MAR, reg.MDR);
+        ea = int(reg.MDR.to_ulong());
+        printf("%03x  ", int(reg.MAR.to_ulong()));
     /** INDEXED ADDRESSING | Get the index reg, use the addr field as an offset, load into EA **/
     } else if(am == 2) {
         reg.MAR = reg.X[getBits(reg.IR, 0, 1)].to_ulong()+getBits(reg.IR, 12, 23);
