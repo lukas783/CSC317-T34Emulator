@@ -120,12 +120,16 @@ void Emulator::IDandEXE() {
     else if(amodes[indicator][op] != "i" && amodes[indicator][op].find(std::to_string(am)) == std::string::npos)  
         halt(indicator, op, "???", "illegal addressing mode");
     
-    /** Handle unimplemented addressing modes  **/
-    else if( am == 6) 
-        halt(indicator, op, "???", "unimplemented addressing mode");
-    
-    /** INDIRECT ADDRESSING | **/
-    else if(am == 4) {
+    /** INDEXED INDIRECT ADDRESING | Index to proper addr, perform indirect addressing and set result as EA **/
+    else if(am == 6) {
+        reg.MAR = reg.X[getBits(reg.IR, 0, 1)].to_ulong()+getBits(reg.IR, 12, 23);
+        getMemory(memory, reg.MAR, reg.MDR);
+        reg.MAR = getBits(reg.MDR, 12, 23);
+        getMemory(memory, reg.MAR, reg.MDR);
+        ea = int(reg.MDR.to_ulong());
+        printf("%03x  ", int(reg.MAR.to_ulong()));
+    /** INDIRECT ADDRESSING | Load the addr field, take the addr field of the loaded addr and set as EA **/
+    } else if(am == 4) {
         reg.MAR = getBits(reg.IR, 12, 23);
         getMemory(memory, reg.MAR, reg.MDR);
         reg.MAR = getBits(reg.MDR, 12, 23);
