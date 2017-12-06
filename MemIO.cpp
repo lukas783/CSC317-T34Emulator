@@ -142,6 +142,14 @@ void putMemory(byte *memarray, std::bitset<12> mar, std::bitset<24> mdr) {
     memarray[addr+2] = (mdr.to_ulong() >> 0) & 0xFF;
 }
 
+void putHalfMemory(byte *memarray, std::bitset<12>mar, std::bitset<24> mdr) {
+    int addr = int(mar.to_ulong())*3;
+    mdr <<= 12; // position the mdr to clear unneccessary bits
+    memarray[addr] = (mdr.to_ulong() >> 16) & 0xFF; // set the upper byte
+    memarray[addr+1] &= 0xF; // clear the upper nyble of the middle byte
+    memarray[addr+1] |= (mdr.to_ulong() >> 8) & 0xF0; // set the upper nyble of the middle byte
+}
+
 /**
  * void getMemory(byte*, std::bitset<12>, std::bitset<24>&)
  * A function to retrieve the contents at a specific offset in a memory array

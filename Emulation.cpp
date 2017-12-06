@@ -107,21 +107,23 @@ void Emulator::IDandEXE() {
     /** Get and print our mnemonic **/
     std::string instr = mnemonic[indicator][getBits(reg.IR, 6, 9)]; 
     printf("%s  ", instr.c_str());
+    
     /** Handle HALT instruction **/
     if(indicator == 0 && op == 0) 
         halt(indicator, op, "   ", "HALT instruction executed");
+    
     /** Handle undefined opcodes  **/
     else if(instr == "????")  
         halt(indicator, op, (am == 1) ? "IMM" : "000", "undefined opcode");
-    /** Handle unimplemented opcodes **/
-    //else if(reg.IR.test(9)) 
-    //    halt(indicator, op, (am == 1) ? "IMM" : "000", "unimplemented opcode");
+
     /** Handle illegal addressing modes **/
     else if(amodes[indicator][op] != "i" && amodes[indicator][op].find(std::to_string(am)) == std::string::npos)  
         halt(indicator, op, "???", "illegal addressing mode");
+    
     /** Handle unimplemented addressing modes  **/
     else if(am == 2 || am == 4 || am == 6) 
         halt(indicator, op, "???", "unimplemented addressing mode");
+    
     /** Set up addressing properly | immediate or direct; set EA accordingly **/
     else if(am == 1) {
         printf("IMM  ");
@@ -132,9 +134,10 @@ void Emulator::IDandEXE() {
         ea = int(reg.MDR.to_ulong());
         printf("%03x  ", int(reg.MAR.to_ulong()));
     }
+    
     /** Set our output flags, all except LD follow a similar output for their instr type**/
     ALUFlags |= (indicator << 4);
-    if(op >= 8) 
+    if(op >= 8) // if the MSB is set, we are performing an indexing op, set the proper output flag
         ALUFlags = (1<<7);
     ALUFlags |= op;
 
@@ -147,13 +150,13 @@ void Emulator::IDandEXE() {
     if(indicator == 2)
         ALUFlags |= (0b1<<6);
     if(indicator == 1) {
-        if(op == 0) 
+        if(op == 0) // OVERRIDE FOR LD FLAGS
             ALUFlags = (0b10<<4); // add 0 to ea ; write to ac
-        if(op == 1) {
+        if(op == 1) { // OVERRIDE FOR ST FLAGS
             ea = 0;
             ALUFlags = (0b101<<4); // add ac to 0 and write to mdr
         }
-        if(op == 2) {
+        if(op == 2) { // Store our LD data in a temp reg, Run a ST into mem, Prepare flags for LD
             /** Store our loaded data temporarily, sign extend if necessary **/
             int temp = reg.MDR.to_ulong();
             if(temp & 0x800000)
@@ -167,8 +170,24 @@ void Emulator::IDandEXE() {
             ALUFlags = (0b10<<4);
             ea = temp;     
         }
-        if(op == 8) {
-            
+        if(op == 8) { // OVERRIDE FOR LDX FLAGS, add 0 to EA, write to IDX reg
+            ALUFlags = (0b1000);
+            if(am == 0) // if its a direct address, we only want the upper half of the word
+                ea >>= 12;
+        }
+        if(op == 9) { // OVERRIDE FOR STX FLAGS, add 0 to IDX reg, write to MDR
+            ea = 0;
+            ALUFlags = (0b1001<<4);
+        }
+        if(op == 10) { // OVERRIDE FOR EMX FLAGS, put EA into temp reg, STX to mem, LDX temp reg to IDX reg
+            int temp = ea >> 12; // put upper half of EA into a temp reg.
+            /** Set flags for STX to mem ; add 0 to idx, write to mdr and putHalfMem **/
+            ALUFlags = (getBits(reg.IR, 0, 1) << 10) | (0b1001<<4);;
+            ea = 0;
+            ALUOp(ALUFlags, ea);
+            putHalfMemory(memory, reg.MAR, reg.MDR);
+            ALUFlags = (0b1000);
+            ea = temp;
         }
     }
     ALUFlags |= (getBits(reg.IR, 0, 1) << 10);
@@ -177,6 +196,9 @@ void Emulator::IDandEXE() {
     /** If it's a store, we need to make sure it stores **/
     if(indicator == 1 && op == 1) 
         putMemory(memory, reg.MAR, reg.MDR);
+    if(indicator == 1 && op == 9) {
+        putHalfMemory(memory, reg.MAR, reg.MDR);
+    }
 }
 
 /**
