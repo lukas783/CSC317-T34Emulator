@@ -150,7 +150,7 @@ void Emulator::IDandEXE() {
     } else if(am == 0) {
         reg.MAR = getBits(reg.IR, 12, 23);
         getMemory(memory, reg.MAR, reg.MDR);
-        ea = int(reg.MDR.to_ulong());
+        ea = op >= 8 ? int(reg.MDR.to_ulong() >> 12) : int(reg.MDR.to_ulong());
         printf("%03x  ", int(reg.MAR.to_ulong()));
     }
     
@@ -160,14 +160,19 @@ void Emulator::IDandEXE() {
         ALUFlags = (1<<7);
     ALUFlags |= op;
 
+    /** BRANCH INSTRUCTIONS **/
     /** Override the effective address (op2) for jump instructions**/
     if(indicator == 3) {
         ALUFlags |= (op<<8);
         ea = int(reg.MAR.to_ulong()); // if we are jumping, our jump to address is weird
     }
+
+    /** ALU INSTRUCTIONS **/
     /** Set the alu op type flag, if its a ld instr we need to override it to output to ac **/
     if(indicator == 2)
         ALUFlags |= (0b1<<6);
+
+    /** MEMORY INSTRUCTIONS **/
     if(indicator == 1) {
         if(op == 0) // OVERRIDE FOR LD FLAGS
             ALUFlags = (0b10<<4); // add 0 to ea ; write to ac
@@ -191,15 +196,13 @@ void Emulator::IDandEXE() {
         }
         if(op == 8) { // OVERRIDE FOR LDX FLAGS, add 0 to EA, write to IDX reg
             ALUFlags = (0b1000);
-            if(am == 0) // if its a direct address, we only want the upper half of the word
-                ea >>= 12;
         }
         if(op == 9) { // OVERRIDE FOR STX FLAGS, add 0 to IDX reg, write to MDR
             ea = 0;
             ALUFlags = (0b1001<<4);
         }
         if(op == 10) { // OVERRIDE FOR EMX FLAGS, put EA into temp reg, STX to mem, LDX temp reg to IDX reg
-            int temp = ea >> 12; // put upper half of EA into a temp reg.
+            int temp = ea; // put upper half of EA into a temp reg.
             /** Set flags for STX to mem ; add 0 to idx, write to mdr and putHalfMem **/
             ALUFlags = (getBits(reg.IR, 0, 1) << 10) | (0b1001<<4);;
             ea = 0;
@@ -209,9 +212,11 @@ void Emulator::IDandEXE() {
             ea = temp;
         }
     }
+
+    /** Set IDX flags and perform the ALU operation **/
     ALUFlags |= (getBits(reg.IR, 0, 1) << 10);
-    /** Perform final ALUOp **/
     ALUOp(ALUFlags, ea);
+
     /** If it's a store, we need to make sure it stores **/
     if(indicator == 1 && op == 1) 
         putMemory(memory, reg.MAR, reg.MDR);
